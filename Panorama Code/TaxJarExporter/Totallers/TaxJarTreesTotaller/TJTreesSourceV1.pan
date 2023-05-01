@@ -577,7 +577,7 @@ global prodID, itemDesc,
 itemQty, itemUnitPrice, 
 discountEach, exemption
 
-window TJTrees
+window TJSeeds
 
 ///GetDiscount to spread out among each line item
 
