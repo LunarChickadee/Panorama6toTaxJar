@@ -799,7 +799,7 @@ ___ ENDPROCEDURE test __________________________________________________________
 ___ PROCEDURE ImportSeeds ______________________________________________________
 global get_orders, date_range,  seeds_tally, which_branch, 
 files_open, order_line, TransactionID, TJExporter
-local start_date, end_date
+global start_date, end_date
 permanent seeds_last_date_imported
 
 TJExporter = info("databasename")
@@ -847,6 +847,7 @@ yesno "End with "+ datepattern(end_date, "YYYY-MM-DD")+"?"
 //-----End Get Date Range----//
 
 
+
 //-----Select Date Range-----///
 
 window seeds_tally
@@ -857,6 +858,8 @@ select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate�
 selectwithin «Status» = "Com"
 
 selectwithin length(«PickSheet») > 2
+
+selectwithin «OrderNo» = int(«OrderNo»)
 
 
 showpage
@@ -970,11 +973,12 @@ Order_line = «Order»
 
 //clipboard()=  replace(Order_line," ","!")
 
-window TJseeds
+
 
 //___Fills the seeds Totaller and exemptions 
 //___resets to first line of order
-debug
+window TJseeds
+
 call ExtractOrderInfo
 
 
