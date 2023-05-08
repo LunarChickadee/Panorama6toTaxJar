@@ -184,7 +184,8 @@ window seeds_tally
             Order_line = «Order» + ¶ + Order_line
             
             downrecord
-        until str(OrderNo) notcontains "."
+        until str(OrderNo) notcontains "." or info("eof")
+        
 
         arraystrip Order_line,¶
 
@@ -240,10 +241,7 @@ window seeds_tally
 
 window seeds_tally
 
-uprecord
-downrecord
-
-until info("stopped")
+until info("eof")
 
 
 
