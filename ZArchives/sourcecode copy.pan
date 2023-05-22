@@ -811,13 +811,29 @@ ___ PROCEDURE (ImportFunctions) ________________________________________________
 ___ ENDPROCEDURE (ImportFunctions) _____________________________________________
 
 ___ PROCEDURE ImportSeeds ______________________________________________________
-global get_orders, date_range
+global get_orders, date_range,  file_chosen, which_branch, files_open, order_line, TransactionID
 local start_date, end_date
-permanent last_date_imported
+permanent seeds_last_date_imported
+
+//___change this for future files? 
+which_branch = "seedstally"
+
+if info("windows") notcontains str(which_branch)
+    message "You need a Seeds Tally Open"
+    stop
+    endif
+
+files_open = info("windows")
+
+file_chosen = array(info("windows"), arraysearch( files_open, "*"+which_branch+"*", 1, ¶ ), ¶)
+
+
 
 define seeds_last_date_imported, datepattern(today(),"YYYY-MM-DD")
 
 date_range = ""
+
+
 
 
 //-------Get Date Range------//
@@ -842,6 +858,54 @@ yesno "End with "+ datepattern(end_date, "YYYY-MM-DD")+"?"
 //-----End Get Date Range----//
 
 
+//-----Find Date Range-----///
+
+window file_chosen
+
+select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate»)) ≤ end_date
+
+selectwithin length(«Order») > 2
+
+
+
+//---start import loop ---///
+
+global OrdRef, format_Date, toName, toStreet, toCity
+
+/*
+
+firstrecord
+
+loop 
+///----Set Transcation ID------//
+TransactionID = "pan"+str(yearvalue(date(datestr(«EntryDate»))))+"seed"+str(OrderNo)
+
+
+///----Is Order or Refund----//
+// OrdRef = //_____formula for figuring out if something is an order or a refund____///
+
+
+//---if refund, give reference--------//
+
+//-------waiting for reply from Ryan------//
+// transactionRef = 
+// if OrdRef = Refund (order_with_refund | order with partial refund 
+// else "" 
+
+
+//----set date to proper format----//
+format_Date = datepattern(date(datestr(«EntryDate»)), "YYYY-MM-DD")
+
+toName = ?(«Con» ≠ "", «Con», «Group»)
+
+toStreet = ?(«MAd» ≠ "",«MAd»,"")
+
+toCity = ?(«City» ≠ "",«City»,"")
+
+
+//----add all the pieces to our new orderline
+orderline = "panorama" + ¬ + TransactionID + ¬ + OrdRef + ¬ + format_Date + ¬
+*/
 //-----NOTE------//
 /////////after import has succeeded, last import date needs to change
 ___ ENDPROCEDURE ImportSeeds ___________________________________________________
