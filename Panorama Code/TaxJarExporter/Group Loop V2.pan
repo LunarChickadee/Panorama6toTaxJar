@@ -1,7 +1,7 @@
 ///______Get Seedstally name________
 
 global get_orders, date_range,  seeds_tally, which_branch, 
-files_open, order_line, TransactionID, group_list
+files_open, order_line, TransactionID, group_list, full_group_list
 
 group_list = ""
 
@@ -59,11 +59,13 @@ loop
 
 until (not info("found"))
 
-arraydeduplicate group_list,group_list, ","
+
 
 //displaydata group_list
 
 selectwithin arraycontains( group_list, str(OrderNo)[1,"."][1,-2], "," ) or group_list contains str(OrderNo)
+
+arrayselectedbuild full_group_list, ¶, "", str(OrderNo)
 
 debug
 
