@@ -11,3 +11,23 @@ Add saves in between each step in case it crashes
 
 test exporting that big of a CSV, if it doesn't work, do selections and export those. 
 
+
+make sure cleanupdata runs after all the imports
+
+- fix this in the other error checkers: 
+////______find likely errors______///
+select provider = "" OR
+transaction_id = "" OR 
+transaction_date = "" OR 
+to_state = "" OR 
+to_zip = "" OR 
+to_country = "" OR
+item_product_identifier = "" OR 
+item_quantity = "" OR
+val(item_quantity) = 0 OR 
+item_unit_price = 0
+
+if (not info("empty"))
+    message "Please fix these records with issues on required fields"
+    endif
+d
