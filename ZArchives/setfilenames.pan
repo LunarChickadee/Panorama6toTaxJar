@@ -89,7 +89,8 @@ case use_last_year = -1
     ogs_tally = array(tally_files, arraysearch(tally_files, "*ogs*",1,¶),¶)
     ogs_tally = replace(ogs_tally, thisFYear, lastFYear )
 
-
+message available_files
+///_______This will likley break with the seeds summer and seeds winter split, so be mindful___///
     if info("windows") notcontains seeds_tally and available_files contains seeds_tally
         openfile seeds_tally
         endif
@@ -103,3 +104,9 @@ case use_last_year = -1
         endif
 
 endcase
+
+openfile TJseeds
+openfile TJtrees
+openfile TJogs
+
+window TJexporter
