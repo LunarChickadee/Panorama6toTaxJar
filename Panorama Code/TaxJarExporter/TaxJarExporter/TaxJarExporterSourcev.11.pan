@@ -286,7 +286,7 @@ ___ PROCEDURE (ImportFunctions) ________________________________________________
 ___ ENDPROCEDURE (ImportFunctions) _____________________________________________
 
 ___ PROCEDURE ImportTrees ______________________________________________________
-global get_orders, date_range,  tree_tally, which_branch, 
+global get_orders, date_range, which_branch, 
 files_open, order_line, TransactionID, TJExport
 local start_date, end_date
 permanent trees_last_date_imported
@@ -304,7 +304,7 @@ date_range = ""
 
 //-----Find Date Range-----///
 
-window tree_tally
+window trees_tally
 
 //select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate»)) ≤ end_date
 
@@ -321,22 +321,7 @@ global import_count
 
 import_count = val(info("records"))
 
-////_____Start Order Line Item Export______///
-yesno "Are you Ready to start Importing orders?"
-    if clipboard()="No"
-        stop
-        endif
 
-openfile "TaxJarTreesTotaller"
-
-if info('windows') notcontains "TaxJarTreesTotaller"
-    message "Can't find TJTreesTotaller, fix that"
-    stop
-    endif
-
-global TJTrees 
-
-TJTrees = info("windowname")
 
 extendedexpressionstack
 
@@ -348,7 +333,7 @@ loop
 //---import loop ---///
 
 
-window tree_tally
+window trees_tally
 
 global transactionType, format_Date, toName, toStreet, toCity,toState, toZip, toCountry, totalShipping,
 totalSalesTax, productID,productDescription, itemQuantity, itemUnitPrice, OrderExempt, TaxableBool, discountTotal
@@ -419,7 +404,7 @@ Order_line = «Order»
 
 //clipboard()=  replace(Order_line," ","!")
 
-window TJTrees
+window TJtrees
 
 //___Fills the trees Totaller and exemptions 
 //___resets to first line of order
@@ -461,17 +446,17 @@ loop
     «item_product_identifier» = prodID
     «item_description» = itemDesc
     «item_quantity» = itemQty
-    «item_unit_price» = str(itemUnitPrice)
+    «item_unit_price» = itemUnitPrice
     «exemption_type» = exemption 
 
-    window TJTrees
+    window TJtrees
 
     downrecord
 
 until info("stopped")
 
 
-window tree_tally
+window trees_tally
 
 downrecord
 
@@ -480,7 +465,6 @@ until info("stopped")
 
 window TJexporter
 
-call CleanUpData
 
 //Cleanup zeros and blanks
 
@@ -499,8 +483,9 @@ to_state = "" OR
 to_zip = "" OR 
 to_country = "" OR
 item_product_identifier = "" OR 
-item_quantity = "" OR 
-item_unit_price = ""
+item_quantity = "" OR
+val(item_quantity) = 0 OR 
+item_unit_price = 0
 
 if (not info("empty"))
     message "Please fix these records with issues on required fields"
@@ -962,7 +947,7 @@ loop
     «item_product_identifier» = prodID
     «item_description» = itemDesc
     «item_quantity» = itemQty
-    «item_unit_price» = str(itemUnitPrice)
+    «item_unit_price» = itemUnitPrice
     «exemption_type» = exemption 
 
     window TJseeds
@@ -1377,22 +1362,7 @@ window seeds_tally
 until info("eof")
 
 
-
-
-
-
-
-
-        
-
-
-
-
-
-
-
-
-
+selectwithin full_group_list notcontains str(«OrderNo»)
 
 ___ ENDPROCEDURE SeedsGroups ___________________________________________________
 
@@ -1585,6 +1555,8 @@ if clipboard()="No"
 stop
 
 endif
+
+deleteall
 
 call .SetImportDate
 
@@ -2091,3 +2063,32 @@ ___ ENDPROCEDURE OGSGroups _____________________________________________________
 ___ PROCEDURE FormattedOrderLine _______________________________________________
 
 ___ ENDPROCEDURE FormattedOrderLine ____________________________________________
+
+___ PROCEDURE ImportAll ________________________________________________________
+noshow
+
+
+save
+call SeedsGroups
+save
+window TJexporter
+
+call ImportSeeds
+save
+window TJexporter
+
+call OGSGroups
+save
+window TJexporter
+
+call ImportTrees
+save
+window TJexporter
+
+endnoshow
+showpage
+___ ENDPROCEDURE ImportAll _____________________________________________________
+
+___ PROCEDURE reset ____________________________________________________________
+call .Initialize
+___ ENDPROCEDURE reset _________________________________________________________
