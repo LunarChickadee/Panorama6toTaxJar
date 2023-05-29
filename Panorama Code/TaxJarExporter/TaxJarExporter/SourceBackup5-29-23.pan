@@ -765,7 +765,13 @@ if (not info("empty"))
     endif
 */
 
-displaydata TJexporter
+window seeds_tally
+
+select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate»)) ≤ end_date
+
+selectwithin full_group_list notcontains str(«OrderNo»)
+
+
 ___ ENDPROCEDURE test __________________________________________________________
 
 ___ PROCEDURE ImportSeeds ______________________________________________________
@@ -801,20 +807,9 @@ global import_count
 
 import_count = val(info("records"))
 
-////_____Start Order Line Item Export______///
-yesno "Are you Ready to start Importing orders?"
-    if clipboard()="No"
-        stop
-        endif
         
 noshow
 
-openfile "TaxJarSeedsTotaller"
-
-if info('windows') notcontains "TaxJarSeedsTotaller"
-    message "Can't find TJseedsTotaller, fix that"
-    stop
-    endif
 
 global TJseeds 
 
@@ -908,7 +903,8 @@ window TJseeds
 
 //___Fills the seeds Totaller and exemptions 
 //___resets to first line of order
-debug
+
+
 call ExtractOrderInfo
 
 
@@ -1428,26 +1424,119 @@ ___ PROCEDURE .SetFileNames ____________________________________________________
 
 global available_files, tally_files, totaller_files,file_num, list_size, loop_counter  
 
-call .GetTallyFiles
+file_num = 0
+
+tally_files = ""
+
+available_files = ""
+
+available_files = listfiles(folder(""),"????KASX")
+tally_files = available_files
+totaller_files = ""
+list_size = arraysize(tally_files,¶)
+
+
+
+loop_counter = 0
+loop
+ file_num = file_num + 1
+ loop_counter = loop_counter +1
+ 
+     if array(tally_files, file_num, ¶) contains "totaller"
+        //message array(tally_files, file_num, ¶)
+        totaller_files = arrayinsert(totaller_files,1,1,¶)
+        totaller_files = arraychange(totaller_files,array(tally_files, file_num, ¶), 1,¶)
+        totaller_files = arraystrip(totaller_files,¶)
+        endif
+    
+    if array(tally_files, file_num, ¶) notcontains "tally" 
+        tally_files = arraydelete(tally_files, file_num, 1, ¶)
+        file_num = file_num - 1  // Adjust the index after deletion
+        endif
+  
+        
+    if val(array(tally_files, file_num, ¶)) < 10 
+        tally_files = arraydelete(tally_files, file_num, 1, ¶)
+        file_num = file_num - 1  // Adjust the index after deletion
+        endif     
+    
+    if val(array(tally_files, file_num, ¶)) ≠ val(thisFYear)
+      tally_files = arraydelete(tally_files, file_num, 1, ¶)
+        file_num = file_num - 1  // Adjust the index after deletion
+        endif     
+    
+
+until loop_counter = list_size+1
 
 debug
 ///Set Files
 
 global TJseeds, TJtrees, TJogs, seeds_tally, trees_tally, ogs_tally, TJexporter
 
-seeds_tally = "seedstallyDelinked"
-trees_tally = "treestallyDelinked"
-ogs_tally = "ogstallyDelinked"
+seeds_tally = array(tally_files, arraysearch(tally_files, "*seeds*",1,¶),¶)
+//displaydata seeds_tally
+trees_tally = array(tally_files, arraysearch(tally_files, "*trees*",1,¶),¶)
+//displaydata trees_tally
+ogs_tally = array(tally_files, arraysearch(tally_files, "*ogs*",1,¶),¶)
+//displaydata ogs_tally
 
 //displaydata totaller_files
-TJseeds = "TaxJarSeedsTotaller"
-TJtrees = "TaxJarTreesTotaller"
-TJogs = "TaxJarOGSTotaller"
+TJseeds = array(totaller_files, arraysearch(totaller_files, "*Seeds*",1,¶),¶)
+//displaydata TJseeds
+TJtrees = array(totaller_files, arraysearch(totaller_files, "*Trees*",1,¶),¶)
+//displaydata TJtrees
+TJogs = array(totaller_files, arraysearch(totaller_files, "*OGS*",1,¶),¶)  
+//displaydata TJogs
+//note, ogs needs an addition to initialize next to wayfair to add taxjar exception
+
 
 TJexporter = "TaxJarExporter"
 
 
+case use_last_year = 0
 
+    if info("windows") notcontains seeds_tally and seeds_tally ≠ ""
+        openfile seeds_tally
+        endif
+
+    if info("windows") notcontains trees_tally and trees_tally ≠ ""
+        openfile trees_tally
+        endif
+
+    if info("windows") notcontains ogs_tally and ogs_tally ≠ ""
+        openfile ogs_tally
+        endif
+
+case use_last_year = -1
+
+    ///Set Files to last year
+
+    seeds_tally = array(tally_files, arraysearch(tally_files, "*seeds*",1,¶),¶)
+    seeds_tally = replace(seeds_tally, thisFYear, lastFYear )
+    trees_tally = array(tally_files, arraysearch(tally_files, "*trees*",1,¶),¶)
+    trees_tally = replace(trees_tally, thisFYear, lastFYear )
+    ogs_tally = array(tally_files, arraysearch(tally_files, "*ogs*",1,¶),¶)
+    ogs_tally = replace(ogs_tally, thisFYear, lastFYear )
+
+message available_files
+///_______This will likley break with the seeds summer and seeds winter split, so be mindful___///
+    if info("windows") notcontains seeds_tally and available_files contains seeds_tally
+        openfile seeds_tally
+        endif
+
+    if info("windows") notcontains trees_tally and available_files contains trees_tally
+        openfile trees_tally
+        endif
+
+    if info("windows") notcontains ogs_tally and available_files contains ogs_tally
+        openfile ogs_tally
+        endif
+
+endcase
+
+openfile TJseeds
+openfile TJtrees
+openfile TJogs
 
 window TJexporter
 ___ ENDPROCEDURE .SetFileNames _________________________________________________
@@ -1961,6 +2050,8 @@ window ogs_tally
 
 until info("eof")
 
+select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate»)) ≤ end_date
+
 selectwithin ogs_full_group_list notcontains str(«OrderNo»)
 
 
@@ -1999,3 +2090,42 @@ ___ ENDPROCEDURE ImportAll _____________________________________________________
 ___ PROCEDURE reset ____________________________________________________________
 call .Initialize
 ___ ENDPROCEDURE reset _________________________________________________________
+
+___ PROCEDURE ExtractOrderInfo _________________________________________________
+/// State: Tally has a list of desired orders, 
+//now we need to loop through, 
+//break them apart, check for exemptions, 
+//and append them to the list as a set of 
+//line item parts to a single order for each transaction ID/OrderNo
+
+
+window TJseeds
+
+openfile "&@Order_line"
+
+///___find out if there are exempt Items
+
+firstrecord
+
+loop
+
+call CheckExemptions
+
+///____Cleanup Itemname____
+global changeThese, toThese
+
+changeThese = "E-;*-"
+toThese = ";"
+«Item» = replacemultiple(«Item»,changeThese,toThese,";")
+
+
+
+downrecord
+
+until info("stopped")
+
+firstrecord
+
+
+
+___ ENDPROCEDURE ExtractOrderInfo ______________________________________________

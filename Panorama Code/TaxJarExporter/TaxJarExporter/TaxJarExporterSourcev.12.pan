@@ -299,7 +299,7 @@ date_range = ""
 
 
 
-
+openfile trees_tally
 
 
 //-----Find Date Range-----///
@@ -475,21 +475,6 @@ loop
         endif
 until (not info("found"))
 
-////______find likely errors______///
-select provider = "" OR
-transaction_id = "" OR 
-transaction_date = "" OR 
-to_state = "" OR 
-to_zip = "" OR 
-to_country = "" OR
-item_product_identifier = "" OR 
-item_quantity = "" OR
-val(item_quantity) = 0 OR 
-item_unit_price = 0
-
-if (not info("empty"))
-    message "Please fix these records with issues on required fields"
-    endif
 
 
 //-----NOTE------//
@@ -744,33 +729,12 @@ endif
 ___ ENDPROCEDURE ExemptItems ___________________________________________________
 
 ___ PROCEDURE test _____________________________________________________________
-/*
 
-///////This is a corrected error checker since item quality needs to not be text
-
-////______find likely errors______///
-select provider = "" OR
-transaction_id = "" OR 
-transaction_date = "" OR 
-to_state = "" OR 
-to_zip = "" OR 
-to_country = "" OR
-item_product_identifier = "" OR 
-item_quantity = "" OR
-val(item_quantity) = 0 OR 
-item_unit_price = 0
-
-if (not info("empty"))
-    message "Please fix these records with issues on required fields"
-    endif
-*/
-
-displaydata TJexporter
 ___ ENDPROCEDURE test __________________________________________________________
 
 ___ PROCEDURE ImportSeeds ______________________________________________________
-global get_orders, date_range,  seeds_tally, which_branch, 
-files_open, order_line, TransactionID, TJexporter
+global get_orders, date_range,  which_branch, 
+files_open, order_line, TransactionID
 local start_date, end_date
 permanent seeds_last_date_imported
 
@@ -779,8 +743,9 @@ define seeds_last_date_imported, datepattern(today(),"YYYY-MM-DD")
 
 date_range = ""
 
+which_branch = "seedstally"
 
-
+openfile seeds_tally
 //-----Select Date Range-----///
 
 window seeds_tally
@@ -801,24 +766,10 @@ global import_count
 
 import_count = val(info("records"))
 
-////_____Start Order Line Item Export______///
-yesno "Are you Ready to start Importing orders?"
-    if clipboard()="No"
-        stop
-        endif
         
 noshow
 
-openfile "TaxJarSeedsTotaller"
 
-if info('windows') notcontains "TaxJarSeedsTotaller"
-    message "Can't find TJseedsTotaller, fix that"
-    stop
-    endif
-
-global TJseeds 
-
-TJseeds = info("windowname")
 
 extendedexpressionstack
 
@@ -908,8 +859,9 @@ window TJseeds
 
 //___Fills the seeds Totaller and exemptions 
 //___resets to first line of order
-debug
-call ExtractOrderInfo
+
+
+call "ExtractOrderInfo"
 
 
 loop
@@ -971,7 +923,7 @@ endnoshow
 
 showpage
 
-call CleanUpData
+//call CleanUpData
 
 
 //Cleanup zeros and blanks
@@ -983,20 +935,7 @@ loop
         endif
 until (not info("found"))
 
-////______find likely errors______///
-select provider = "" OR
-transaction_id = "" OR 
-transaction_date = "" OR 
-to_state = "" OR 
-to_zip = "" OR 
-to_country = "" OR
-item_product_identifier = "" OR 
-item_quantity = "" OR 
-item_unit_price = ""
 
-if (not info("empty"))
-    message "Please fix these records with issues on required fields"
-    endif
 
 
 //-----NOTE------//
@@ -1116,7 +1055,7 @@ ___ ENDPROCEDURE CheckData _____________________________________________________
 ___ PROCEDURE SeedsGroups ______________________________________________________
 ///______Get Seedstally name________
 
-global get_orders, date_range,  seeds_tally, which_branch, 
+global get_orders, date_range, which_branch, 
 files_open, order_line, TransactionID, group_list, full_group_list
 
 group_list = ""
@@ -1125,27 +1064,16 @@ group_list = ""
 
 ///_____Add the option to check the previous date range
 
-TJexporter = info("databasename")
+
 
 //select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate»)) ≤ end_date
 
 
 
-//___change this for future files? 
+//___this is for taxes
 which_branch = "seedstally"
 
-if info("windows") notcontains str(which_branch)
-    message "You need a "+which_branch+" Open"
-    stop
-    endif
-
-files_open = info("windows")
-
-seeds_tally = array(info("windows"), arraysearch( files_open, "*"+which_branch+"*", 1, ¶ ), ¶)
-//message seeds_tally
-
-
-////_____________//////
+openfile seeds_tally
 
 
 window seeds_tally
@@ -1160,6 +1088,9 @@ find str(OrderNo) contains "." and «Status» contains "Com"
     if info("found")
 
     group_list = str(int(val(«OrderNo»)))
+    
+    else
+        rtn
 
         endif
 
@@ -1198,9 +1129,7 @@ if info('windows') notcontains "TaxJarSeedsTotaller"
     stop
     endif
 
-global TJseeds 
 
-TJseeds = info("windowname")
 
 //_____
 
@@ -1426,9 +1355,9 @@ ___ ENDPROCEDURE .SetImportDate ________________________________________________
 ___ PROCEDURE .SetFileNames ____________________________________________________
 ///____Get list of currently open tallies and prompt the user to get the rile files open___///
 
-global available_files, tally_files, totaller_files,file_num, list_size, loop_counter  
+global available_files, tally_files, totaller_files,file_num, list_size, loop_counter 
 
-call .GetTallyFiles
+//call .GetTallyFiles
 
 debug
 ///Set Files
@@ -1439,14 +1368,13 @@ seeds_tally = "seedstallyDelinked"
 trees_tally = "treestallyDelinked"
 ogs_tally = "ogstallyDelinked"
 
+
 //displaydata totaller_files
 TJseeds = "TaxJarSeedsTotaller"
 TJtrees = "TaxJarTreesTotaller"
 TJogs = "TaxJarOGSTotaller"
 
 TJexporter = "TaxJarExporter"
-
-
 
 
 window TJexporter
@@ -1470,6 +1398,30 @@ call .SetImportDate
 window TJexporter
 
 call .SetSelections
+
+window TJexporter
+
+if active_tally_data contains "s"
+call SeedsGroups //this call needs a rtn if there's no info found for a group search
+window TJexporter
+call ImportSeeds
+endif
+
+window TJexporter
+if active_tally_data contains "o"
+call OGSGroups
+window TJexporter
+call ImportOGS
+endif
+
+if active_tally_data contains "t"
+window TJexporter
+call ImportTrees
+endif
+
+window TJexporter
+
+
 ___ ENDPROCEDURE .Initialize ___________________________________________________
 
 ___ PROCEDURE .SetFileNamesLastYear ____________________________________________
@@ -1480,6 +1432,10 @@ ___ ENDPROCEDURE .SetFileNamesLastYear _________________________________________
 ___ PROCEDURE .SetSelections ___________________________________________________
 window seeds_tally
 
+global active_tally_data
+
+active_tally_data = "s,t,o"
+
 selectall
 
 select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate»)) ≤ end_date
@@ -1487,6 +1443,7 @@ select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate�
 if info("empty") and monthvalue(start_date) ≠ 6
     message "nothing in that range for Seeds, file will close and procedure will continue"
     closefile
+    active_tally_data = replace(active_tally_data,"s","")
     endif
 
 
@@ -1499,6 +1456,7 @@ select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate�
 if info("empty") and monthvalue(start_date) ≠ 6
     message "nothing in that range for Trees, file will close and procedure will continue"
     closefile
+    active_tally_data = replace(active_tally_data,"t","")
     endif
     
 window ogs_tally
@@ -1510,15 +1468,19 @@ select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate�
 if info("empty") and monthvalue(start_date) ≠ 6
     message "nothing in that range for Trees, file will close and procedure will continue"
     closefile
+    active_tally_data = replace(active_tally_data,"o","")
     endif
 
+arraystrip active_tally_data, ","
 ___ ENDPROCEDURE .SetSelections ________________________________________________
 
 ___ PROCEDURE ImportOGS ________________________________________________________
-global get_orders, date_range,  seeds_tally, which_branch, 
+global get_orders, date_range, which_branch, 
 files_open, order_line, TransactionID
 local start_date, end_date
 permanent ogs_last_date_imported
+
+openfile ogs_tally
 
 window ogs_tally
 
@@ -1527,6 +1489,7 @@ selectwithin «Status» = "Com"
 
 selectwithin length(«PickSheet») > 2
 
+which_branch = "ogstally"
 
 showpage
 
@@ -1536,24 +1499,11 @@ global import_count
 
 import_count = val(info("records"))
 
-////_____Start Order Line Item Export______///
-yesno "Are you Ready to start Importing orders?"
-    if clipboard()="No"
-        stop
-        endif
-        
+
 noshow
 
-openfile "TaxJarOGSTotaller"
 
-if info('windows') notcontains "TaxJarOGSTotaller"
-    message "Can't find TJseedsTotaller, fix that"
-    stop
-    endif
 
-global TJogs
-
-TJseeds = info("windowname")
 
 extendedexpressionstack
 
@@ -1708,7 +1658,7 @@ showpage
 
 debug
 
-call CleanUpData
+//call CleanUpData
 
 
 //Cleanup zeros and blanks
@@ -1720,21 +1670,6 @@ loop
         endif
 until (not info("found"))
 
-////______find likely errors______///
-select provider = "" OR
-transaction_id = "" OR 
-transaction_date = "" OR 
-to_state = "" OR 
-to_zip = "" OR 
-to_country = "" OR
-item_product_identifier = "" OR 
-item_quantity = "" OR
-val(item_quantity) = 0 OR 
-item_unit_price = 0
-
-if (not info("empty"))
-    message "Please fix these records with issues on required fields"
-    endif
 
 
 //-----NOTE------//
@@ -1749,7 +1684,7 @@ global get_orders, date_range, order_line, TransactionID, ogs_group_list, ogs_fu
 
 ogs_group_list = ""
 
-
+openfile ogs_tally
 
 
 window ogs_tally
@@ -1764,6 +1699,10 @@ find str(OrderNo) contains "." and «Status» contains "Com"
     if info("found")
 
     ogs_group_list = str(int(val(«OrderNo»)))
+    
+    else
+    
+    rtn
 
         endif
 
@@ -1961,6 +1900,8 @@ window ogs_tally
 
 until info("eof")
 
+select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate»)) ≤ end_date
+
 selectwithin ogs_full_group_list notcontains str(«OrderNo»)
 
 
@@ -1999,3 +1940,136 @@ ___ ENDPROCEDURE ImportAll _____________________________________________________
 ___ PROCEDURE reset ____________________________________________________________
 call .Initialize
 ___ ENDPROCEDURE reset _________________________________________________________
+
+___ PROCEDURE ExtractOrderInfo _________________________________________________
+/// State: Tally has a list of desired orders, 
+//now we need to loop through, 
+//break them apart, check for exemptions, 
+//and append them to the list as a set of 
+//line item parts to a single order for each transaction ID/OrderNo
+
+
+window TJseeds
+
+openfile "&@Order_line"
+
+///___find out if there are exempt Items
+
+firstrecord
+
+loop
+
+call CheckExemptions
+
+///____Cleanup Itemname____
+global changeThese, toThese
+
+changeThese = "E-;*-"
+toThese = ";"
+«Item» = replacemultiple(«Item»,changeThese,toThese,";")
+
+
+
+downrecord
+
+until info("stopped")
+
+firstrecord
+
+
+
+___ ENDPROCEDURE ExtractOrderInfo ______________________________________________
+
+___ PROCEDURE .GetTallyFiles ___________________________________________________
+global linked_folder, all_files, windows_start, seeds_file, tally_check
+local filename,folder,type
+
+all_files = listfiles(folder(""),"")
+tally_check = ""
+
+linked_folder = array(all_files,arraysearch(all_files, "*LinkedTallies*",1,¶),¶)
+
+windows_start = info("windows")
+//displaydata linked_folder
+
+///_____select all the tallies you want to get data from, then based on those
+///__________selections, open, syncronize, save, close, then upload to offline database
+yesno "Do you have a seeds tally?"
+if clipboard()="Yes"
+tally_check = tally_check +¬+"s"
+global seeds_folder, seeds_file, seeds_type
+openfiledialog seeds_folder, seeds_file,seeds_type,""
+endif
+
+yesno "Do you have a trees tally?"
+if clipboard()="Yes"
+tally_check = tally_check+¬+"t"
+global trees_folder, trees_file, trees_type
+openfiledialog trees_folder, trees_file,trees_type,""
+endif 
+
+yesno "Do you have an ogs tally?"
+if clipboard()="Yes"
+tally_check = tally_check+¬+"o"
+global ogs_folder, ogs_file, ogs_type
+openfiledialog ogs_folder, ogs_file,ogs_type,""
+endif
+
+arraystrip tally_check, ¬
+
+if tally_check contains "s"
+opensecret folderpath(seeds_folder)+seeds_file
+window (seeds_file)+":Secret"
+synchronize
+save
+closefile
+openfile "seedstallyDelinked"
+openfile "&&"+folderpath(seeds_folder)+seeds_file
+endif
+
+if tally_check contains "t"
+opensecret folderpath(trees_folder)+trees_file
+window (trees_file)+":Secret"
+synchronize
+save
+closefile
+openfile "treestallyDelinked"
+openfile "&&"+folderpath(trees_folder)+trees_file
+endif
+
+
+if tally_check contains "o"
+opensecret folderpath(ogs_folder)+ogs_file
+window (ogs_file)+":Secret"
+synchronize
+save
+closefile
+openfile "ogstallyDelinked"
+openfile "&&"+folderpath(ogs_folder)+ogs_file
+endif
+
+
+
+
+
+
+___ ENDPROCEDURE .GetTallyFiles ________________________________________________
+
+___ PROCEDURE .FindLikelyErrors ________________________________________________
+////______find likely errors______///
+select provider = "" OR
+transaction_id = "" OR 
+transaction_date = "" OR 
+to_state = "" OR 
+to_zip = "" OR 
+to_country = "" OR
+item_product_identifier = "" OR 
+item_quantity = "" OR
+val(item_quantity) = 0 OR 
+item_unit_price = 0
+
+if (not info("empty"))
+    message "Please fix these records with issues on required fields"
+    endif
+
+___ ENDPROCEDURE .FindLikelyErrors _____________________________________________
