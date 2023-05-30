@@ -1,3 +1,12 @@
+# Find out why OGS is messing up when importing
+## take off the noshow and test it while watching it
+## it's filling exemptions with description names
+## so set a step in the macro that if exemption isn't "" or wholesale, hold onto that order number, and then debug maybe? 
+
+##### likely causes:
+there's some extra data in one of the parts of the orders so description ends up one column too far hence the "bonk" noise from not being able to do what it expects in the fill part. 
+
+
 Finish setting up the OGS exporter. it's throwing out a lot of weird data
 
 find out if OGS does group orders, if so, build a group loop
