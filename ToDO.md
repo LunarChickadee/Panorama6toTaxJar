@@ -6,6 +6,23 @@
 ##### likely causes:
 there's some extra data in one of the parts of the orders so description ends up one column too far hence the "bonk" noise from not being able to do what it expects in the fill part. 
 
+##### Order lengths are from (at least at first glance):
+# 1 = order is empty, but says complete
+    - No of entries with status Com :204
+    - Got rid of cancelled and known empty orders
+    - got rid of anything that doesn't have item codes
+# 8 = order is all zeros, so the other fields are filled in (consider just purging these from the tally with a check of all of the order lines first)
+    - No of entries with status Com :13
+# 9 = order where the itemNumber isn't detached from the Size code, ie. 7777-A instead of 7777 A
+    - No of entries with status Com :4839
+# 10 = also not detached
+    - No of entries with status Com :9717
+# 11 = our standard
+    - No of entries with status Com :930
+
+run the **check order lengths** function to test each selection once you have it 
+use the **order lengths** function to get that data 
+
 
 Finish setting up the OGS exporter. it's throwing out a lot of weird data
 
