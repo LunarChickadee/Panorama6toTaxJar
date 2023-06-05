@@ -296,11 +296,11 @@ define trees_last_date_imported, datepattern(today(),"YYYY-MM-DD")
 date_range = ""
 
 
-
+openfile "TaxJarTreesTotaller"
 
 openfile trees_tally
 
-
+noshow
 //-----Find Date Range-----///
 
 window trees_tally
@@ -474,11 +474,13 @@ loop
         endif
 until (not info("found"))
 
-
+endnoshow
 
 //-----NOTE------//
 /////////after import has succeeded, last import date needs to change
 trees_last_date_imported = datepattern(today(),"YYYY-MM-DD")
+
+speak "Imports are finished"
 ___ ENDPROCEDURE ImportTrees ___________________________________________________
 
 ___ PROCEDURE ExemptItems ______________________________________________________
@@ -1155,7 +1157,7 @@ noshow
 loop
 
 window seeds_tally
-    if str(OrderNo) notcontains "."
+    
         ////_________TaxJar SPecific______////
         //---start taxjar import loop ---///
 
@@ -1167,7 +1169,7 @@ window seeds_tally
 
 
         ///----Set Transcation ID------//
-        TransactionID = "pan"+"_"+str(yearvalue(date(datestr(«EntryDate»))))+"_"+"seeds"+"_"+str(OrderNo)
+        TransactionID = "pan"+"_"+str(yearvalue(date(datestr(«EntryDate»))))+"_"+"seeds"+"_"+str(int(OrderNo))
 
 
         ///----Is Order or Refund----//
@@ -1225,7 +1227,7 @@ window seeds_tally
         endif
 
         downrecord
-    endif
+    
 
       if str(OrderNo) contains "." 
 
@@ -1428,6 +1430,8 @@ endif
 
 window TJexporter
 
+call .FindLikelyErrors
+
 
 ___ ENDPROCEDURE .Initialize ___________________________________________________
 
@@ -1437,51 +1441,90 @@ ___ PROCEDURE .SetFileNamesLastYear ____________________________________________
 ___ ENDPROCEDURE .SetFileNamesLastYear _________________________________________
 
 ___ PROCEDURE .SetSelections ___________________________________________________
-openfile seeds_tally
-
-window seeds_tally
-
 global active_tally_data
 
 active_tally_data = "s,t,o"
 
-selectall
 
-select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate»)) ≤ end_date
+////_______Seeds Setup
+openfile seeds_tally
 
-if info("empty") and monthvalue(start_date) ≠ 6
-    message "nothing in that range for Seeds, file will close and procedure will continue"
-    closefile
-    active_tally_data = replace(active_tally_data,"s","")
-    endif
+    window seeds_tally
+
+    selectall
+
+    select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate»)) ≤ end_date
+
+    if info("empty") and monthvalue(start_date) ≠ 6
+        message "nothing in that range for Seeds, file will close and procedure will continue"
+        closefile
+        active_tally_data = replace(active_tally_data,"s","")
+    else 
+        removeunselected
+        endif 
 
 openfile trees_tally
 
-window trees_tally
+    window trees_tally
 
-selectall
+    selectall
 
-select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate»)) ≤ end_date
+    select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate»)) ≤ end_date
 
-if info("empty") and monthvalue(start_date) ≠ 6
-    message "nothing in that range for Trees, file will close and procedure will continue"
-    closefile
-    active_tally_data = replace(active_tally_data,"t","")
-    endif
+    if info("empty") and monthvalue(start_date) ≠ 6
+        message "nothing in that range for Trees, file will close and procedure will continue"
+        closefile
+        active_tally_data = replace(active_tally_data,"t","")
+    else
+        removeunselected
+        endif
     
 openfile ogs_tally 
 
-window ogs_tally
+    window ogs_tally
 
-selectall
+    selectall
 
-select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate»)) ≤ end_date
+    select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate»)) ≤ end_date
 
-if info("empty") and monthvalue(start_date) ≠ 6
-    message "nothing in that range for Trees, file will close and procedure will continue"
-    closefile
-    active_tally_data = replace(active_tally_data,"o","")
-    endif
+    removeunselected
+
+    call OrderLengths
+
+
+    ////________get the single tab orders out
+
+    select one_list notcontains str(OrderNo)
+        if info("found")
+            removeunselected
+            endif 
+
+    ///______get all zero orders out
+
+    select eight_list notcontains str(OrderNo)
+        if info("found")
+            removeunselected
+            endif
+
+    ///_____ get out any leftovers
+    select  Notes1 notmatch "*cancel*" and 
+            OrderComments notmatch "*empty*" and
+            striptoalpha(«Original Order») notmatch "*j*" and
+            striptoalpha(«Original Order») ≠ "" and 
+            «Original Order» notcontains "complete"
+                if info("found")
+                    removeunselected
+                    endif
+
+
+
+    if info("empty") and monthvalue(start_date) ≠ 6
+        message "nothing in that range for OGS, file will close and procedure will continue"
+        closefile
+        active_tally_data = replace(active_tally_data,"o","")
+    else
+        removeunselected
+        endif
 
 arraystrip active_tally_data, ","
 ___ ENDPROCEDURE .SetSelections ________________________________________________
@@ -1499,6 +1542,7 @@ permanent ogs_last_date_imported
 openfile ogs_tally
 
 window ogs_tally
+
 
 
 select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate»)) ≤ end_date
@@ -1544,7 +1588,7 @@ totalSalesTax, productID,productDescription, itemQuantity, itemUnitPrice, OrderE
 
 toCountry=""
 ///----Set Transcation ID------//
-TransactionID = "pan"+"_"+str(yearvalue(date(datestr(«EntryDate»))))+"_"+"seeds"+"_"+str(OrderNo)
+TransactionID = "pan"+"_"+str(yearvalue(date(datestr(«EntryDate»))))+"_"+"ogs"+"_"+str(OrderNo)
 
 
 ///----Is Order or Refund----//
@@ -1678,7 +1722,7 @@ endnoshow
 
 showpage
 
-debug
+//debug
 
 //call CleanUpData
 
@@ -1748,6 +1792,8 @@ loop
 
 until (not info("found"))
 
+//debug
+
 
 
 //displaydata ogs_group_list
@@ -1756,7 +1802,7 @@ selectwithin arraycontains( ogs_group_list, str(OrderNo)[1,"."][1,-2], "," ) or 
 
 arrayselectedbuild ogs_full_group_list, ¶, "", str(OrderNo)
 
-debug
+//debug
 
 ////_______________________________////
 
@@ -1790,77 +1836,76 @@ DoAgain:
 loop
 
 window ogs_tally
-    if str(OrderNo) notcontains "."
-        ////_________TaxJar SPecific______////
-        //---start taxjar import loop ---///
+    
+    ////_________TaxJar SPecific______////
+    //---start taxjar import loop ---///
 
-        //---import loop ---///
-        window ogs_tally
+    //---import loop ---///
+    window ogs_tally
 
-        global transactionType, format_Date, toName, toStreet, toCity,toState, toZip, toCountry, totalShipping,
-        totalSalesTax, productID,productDescription, itemQuantity, itemUnitPrice, OrderExempt, TaxableBool, discountTotal
-
-
-        ///----Set Transcation ID------//
-        TransactionID = "pan"+"_"+str(yearvalue(date(datestr(«EntryDate»))))+"_"+"ogs"+"_"+str(OrderNo)
+    global transactionType, format_Date, toName, toStreet, toCity,toState, toZip, toCountry, totalShipping,
+    totalSalesTax, productID,productDescription, itemQuantity, itemUnitPrice, OrderExempt, TaxableBool, discountTotal
 
 
-        ///----Is Order or Refund----//
-        // transactionType = //_____formula for figuring out if something is an order or a refund____///
+    ///----Set Transcation ID------//
+    TransactionID = "pan"+"_"+str(yearvalue(date(datestr(«EntryDate»))))+"_"+"ogs"+"_"+str(int(OrderNo))
+
+    ///----Is Order or Refund----//
+    // transactionType = //_____formula for figuring out if something is an order or a refund____///
 
 
-        //ogs orders are all going to be under "Order"
+    //ogs orders are all going to be under "Order"
 
-        transactionType = "Order"
-
-
-        //---if refund, give reference--------//
-
-        // transactionRef = 
-
-        //----set date to proper format----//
-        format_Date = datepattern(date(datestr(«EntryDate»)), "YYYY-MM-DD")
+    transactionType = "Order"
 
 
+    //---if refund, give reference--------//
 
-        //____Buyer Info_____///
+    // transactionRef = 
 
-        toName = ?(«Con»≠"", «Con», «Group»)
-
-        toStreet = ?(«SAd»≠"",«SAd»,"")
-
-        toCity = ?(«Cit»≠"",«Cit»,"")
-
-        toState = «TaxState»
-
-        toZip = ?(«9SpareText» = "",pattern(«Z»,"#####"),"")
-
-        //____ogs does sell to canada 
-        //+++++++
-        ///______
-        ///Make sure to set the logic for this for seeds and possibly OGS
-        //toCountry = ?(«9SpareText» = "", "US","CA")
-
-        //Set needed values
-        //Note: Shipping is mostly 0 here, with some exceptions
-        //for parents, but a few children order with shipping
-        //so use individual shipping for those
-
-        discountTotal = «VolDisc» + «MemDisc»
-        totalShipping = «$Shipping»
-        totalSalesTax = «SalesTax»
+    //----set date to proper format----//
+    format_Date = datepattern(date(datestr(«EntryDate»)), "YYYY-MM-DD")
 
 
-            ///___Set if order is Taxable_____
-        //ogs
-        If Taxable contains "Y"
-            TaxableBool = True()
-        else 
-            TaxableBool = False()
-        endif
 
-        downrecord
+    //____Buyer Info_____///
+
+    toName = ?(«Con»≠"", «Con», «Group»)
+
+    toStreet = ?(«SAd»≠"",«SAd»,"")
+
+    toCity = ?(«Cit»≠"",«Cit»,"")
+
+    toState = «TaxState»
+
+    toZip = ?(«9SpareText» = "",pattern(«Z»,"#####"),"")
+
+    //____ogs does sell to canada 
+    //+++++++
+    ///______
+    ///Make sure to set the logic for this for seeds and possibly OGS
+    //toCountry = ?(«9SpareText» = "", "US","CA")
+
+    //Set needed values
+    //Note: Shipping is mostly 0 here, with some exceptions
+    //for parents, but a few children order with shipping
+    //so use individual shipping for those
+
+    discountTotal = «VolDisc» + «MemDisc»
+    totalShipping = «$Shipping»
+    totalSalesTax = «SalesTax»
+
+
+        ///___Set if order is Taxable_____
+    //ogs
+    If Taxable contains "Y"
+        TaxableBool = True()
+    else 
+        TaxableBool = False()
     endif
+
+    downrecord
+    
     
 
     if str(OrderNo) contains "." 
@@ -1885,6 +1930,8 @@ window ogs_tally
         window TJogs
 
         call ExtractOrderInfo
+        
+        //debug
 
             loop
 
@@ -1929,7 +1976,7 @@ window ogs_tally
             downrecord
             until info("stopped")
     endif
-debug
+//debug
 window ogs_tally
 
 until info("eof")
@@ -1973,7 +2020,7 @@ call .Initialize
 ___ ENDPROCEDURE reset _________________________________________________________
 
 ___ PROCEDURE ExtractOrderInfo _________________________________________________
-message "wrong Extract!!!!"ß
+message "wrong Extract!!!!"
 ___ ENDPROCEDURE ExtractOrderInfo ______________________________________________
 
 ___ PROCEDURE .GetTallyFiles ___________________________________________________
@@ -2053,6 +2100,10 @@ ___ ENDPROCEDURE .GetTallyFiles ________________________________________________
 
 ___ PROCEDURE .FindLikelyErrors ________________________________________________
 ////______find likely errors______///
+select val(item_quantity) ≠ 0
+    removeunselected
+
+
 select provider = "" OR
 transaction_id = "" OR 
 transaction_date = "" OR 
@@ -2105,49 +2156,298 @@ global not_blank_eight, not_blank_one, cancelled_orders
 
 window "ogstallyDelinked"
 
-//call OrderLengths
+call OrderLengths
 
 
-/*
 ////________get the single tab orders out
 
+select one_list notcontains str(OrderNo)
+if info("found")
 
+removeunselected
+endif 
 
-select one_list contains str(OrderNo)
-selectwithin Status = "Com"
+///______get all zero orders out
 
-selectwithin Notes1 notmatch "*cancel*" and 
+select eight_list notcontains str(OrderNo)
+if info("found")
+removeunselected
+endif
+
+select Notes1 notmatch "*cancel*" and 
 OrderComments notmatch "*empty*" and
 striptoalpha(«Original Order») notmatch "*j*" and
 striptoalpha(«Original Order») ≠ "" and 
 «Original Order» notcontains "complete"
 
-arrayselectedbuild one_list, not_blank_one, ¶, str(OrderNo)
-*/
-
-////________get the 8 tab orders fixed
-
-
-
-select eight_list contains str(OrderNo)
-selectwithin Status = "Com"
-arrayselectedbuild eight_list, eight_list, ¶, val(striptonum(«Original Order»)) mod 10 ≠ 0
-
-if eight_list ≠ ""
-    select eight_list contains str(OrderNo)
-    arrayselectedbuild eight_list, not_blank_eight, ¶, str(OrderNo)
-    endif
-    
-    
-/////________get the 9 tab orders fixed 
-select nine_list contains str(OrderNo)
-selectwithin Status = "Com"
-
-
-
-
-
-
+removeunselected
 
 
 ___ ENDPROCEDURE FixOGSOrders __________________________________________________
+
+___ PROCEDURE TestOGS __________________________________________________________
+global get_orders, date_range, which_branch, 
+files_open, order_line, TransactionID
+permanent ogs_last_date_imported
+
+///Call FixOGSOrders
+
+///make this call OGSGroups????????
+//_______________________________________Ω
+
+openfile ogs_tally
+
+window ogs_tally
+
+
+
+select date(datestr(«EntryDate»)) ≥ start_date AND date(datestr(«EntryDate»)) ≤ end_date
+
+selectwithin ogs_full_group_list notcontains str(«OrderNo»)
+
+
+//Get completed orders only
+selectwithin «Status» = "Com"
+
+selectwithin length(«PickSheet») > 2
+
+which_branch = "ogstally"
+
+showpage
+
+firstrecord
+
+global import_count
+
+import_count = val(info("records"))
+
+
+
+
+
+
+extendedexpressionstack
+
+loop
+
+////_________TaxJar SPecific______////
+//---start taxjar import loop ---///
+
+//---import loop ---///
+
+
+window ogs_tally
+
+global transactionType, format_Date, toName, toStreet, toCity,toState, toZip, toCountry, totalShipping,
+totalSalesTax, productID,productDescription, itemQuantity, itemUnitPrice, OrderExempt, TaxableBool, discountTotal
+
+toCountry=""
+///----Set Transcation ID------//
+TransactionID = "pan"+"_"+str(yearvalue(date(datestr(«EntryDate»))))+"_"+"seeds"+"_"+str(OrderNo)
+
+
+///----Is Order or Refund----//
+// transactionType = //_____formula for figuring out if something is an order or a refund____///
+
+
+//seeds orders are all going to be under "Order"
+
+transactionType = "Order"
+
+
+//---if refund, give reference--------//
+
+// transactionRef = 
+
+
+
+//----set date to proper format----//
+format_Date = datepattern(date(datestr(«EntryDate»)), "YYYY-MM-DD")
+
+
+
+//____Buyer Info_____///
+
+toName = ?(«Con»≠"", «Con», «Group»)
+
+toStreet = ?(«SAd»≠"",«SAd»,"")
+
+toCity = ?(«Cit»≠"",«Cit»,"")
+
+toState = «TaxState»
+
+toZip = pattern(«Z»,"#####")
+
+//____seeds does sell to canada 
+//+++++++
+///______
+///Make sure to set the logic for this for seeds and possibly OGS
+toCountry = "US"
+
+///___Set if order is Taxable_____
+//seeds
+If Taxable contains "Y"
+    TaxableBool = True()
+else 
+    TaxableBool = False()
+endif
+
+//__Get Discount, shipping, and sales tax totals
+discountTotal = «VolDisc» + «MemDisc»
+totalShipping = «$Shipping»
+totalSalesTax = «SalesTax»
+
+
+/////////________Open up Totaller and parse out individual transations for the rest of the data_______////
+
+///_____Split apart orders, set exemptions, put in proper place on TJexporter_____///
+
+///___Get the date in lines to start___///
+
+global Order_line, PickSheet_line
+
+Order_line = «Order»
+
+debug
+
+//clipboard()=  replace(Order_line," ","!")
+
+window TJogs
+
+//___Fills the seeds Totaller and exemptions 
+//___resets to first line of order
+
+call ExtractOrderInfo
+
+
+loop
+debug
+
+    //____pulls the relevant data out of the seeds line
+    call FormattedOrderLine
+
+    window TJexporter
+
+    addrecord
+
+    ////Set all the proper Fields for each seeds line from the TJseeds file
+
+    ///TransID
+    «provider» = "panorama"
+    «transaction_id» = TransactionID
+    «transaction_type» = transactionType
+    //transaction_reference_id = // only for refunds
+    «transaction_date» = format_Date
+
+    ///Shipped to 
+    «to_name» = toName
+    «to_street» = toStreet
+    «to_city» = toCity
+    «to_state» = toState
+    «to_zip» = toZip
+    «to_country» = toCountry
+
+    //Dollars and Cents
+    «total_shipping» = str(totalShipping)
+    «total_sales_tax» = str(totalSalesTax)
+    «item_discount» = str(discountEach) 
+
+    //Other Info
+    «item_product_identifier» = prodID
+    «item_description» = itemDesc
+    «item_quantity» = itemQty
+    «item_unit_price» = itemUnitPrice
+    «exemption_type» = exemption 
+
+    window TJogs
+
+    downrecord
+
+until info("stopped")
+
+
+
+window ogs_tally
+
+downrecord
+
+until info("stopped")
+
+
+window TJexporter
+
+endnoshow
+
+showpage
+
+debug
+
+//call CleanUpData
+
+
+//Cleanup zeros and blanks
+
+loop
+    find item_quantity = "" or val(item_quantity) = 0
+        if info("found")
+            deleterecord
+        endif
+until (not info("found"))
+
+
+
+//-----NOTE------//
+/////////after import has succeeded, last import date needs to change
+ogs_last_date_imported = datepattern(today(),"YYYY-MM-DD")
+
+speak "OGS has finishes!!!!!!!"
+___ ENDPROCEDURE TestOGS _______________________________________________________
+
+___ PROCEDURE FindSpecificOrder ________________________________________________
+global trans_id_ref
+
+//trans_id_ref = «transaction_id»["-_",-1][2,-1]
+
+trans_id_ref = "701902"
+select «transaction_id» contains trans_id_ref
+___ ENDPROCEDURE FindSpecificOrder _____________________________________________
+
+___ PROCEDURE GetTotalSold _____________________________________________________
+global taxable_total, mather
+firstrecord
+noshow
+mather = 0
+taxable_total = 0
+loop
+
+mather = float(item_unit_price)*val(item_quantity)
+taxable_total = taxable_total + mather
+
+downrecord
+until info("stopped")
+endnoshow
+showpage
+
+displaydata taxable_total
+
+___ ENDPROCEDURE GetTotalSold __________________________________________________
+
+___ PROCEDURE GetShippingTotals ________________________________________________
+global shipping_total, mather
+firstrecord
+noshow
+mather = 0
+shipping_total = 0
+loop
+
+mather = val(total_shipping)
+shipping_total = shipping_total + mather
+
+downrecord
+until info("stopped")
+endnoshow
+showpage
+
+displaydata shipping_total
+
+___ ENDPROCEDURE GetShippingTotals _____________________________________________
