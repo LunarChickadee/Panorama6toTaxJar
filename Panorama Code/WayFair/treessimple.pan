@@ -1,32 +1,30 @@
 global get_orders, date_range,  which_branch, 
 files_open, order_line, TransactionID, check_overflow_count
-permanent seeds_last_date_imported
+permanent trees_last_date_imported, time_start, time_end
+
+time_start = now()
 
 check_overflow_count = 0
 extendedexpressionstack 
-//noshow
+noshow
 
 //______Gets to the right data ____///
-define seeds_last_date_imported, datepattern(today(),"YYYY-MM-DD")
+define trees_last_date_imported, datepattern(today(),"YYYY-MM-DD")
 
 date_range = ""
 
-which_branch = "seedstally"
+which_branch = "treestally"
 
-openfile seeds_tally
+openfile trees_tally
 //-----Select Date Range-----///
 
-window seeds_tally
+window trees_tally
 
 select date(datestr(«FillDate»)) ≥ start_date AND date(datestr(«FillDate»)) ≤ end_date
-
-selectwithin str(OrderNo) notcontains "."
 
 
 //Get completed orders only
 selectwithin «Status» = "Com"
-
-selectwithin length(«PickSheet») > 2
 
 selectwithin OrderNo = int(OrderNo)
 
@@ -44,19 +42,19 @@ loop
     //---import loop ---///
 
 
-    window seeds_tally
+    window trees_tally
 
 
 
     ///----Set Transcation ID------//
-    TransactionID = "pan"+"_"+str(yearvalue(date(datestr(«FillDate»))))+"_"+"seeds"+"_"+str(OrderNo)
+    TransactionID = "pan"+"_"+str(yearvalue(date(datestr(«FillDate»))))+"_"+"trees"+"_"+str(OrderNo)
 
 
     ///----Is Order or Refund----//
     // transactionType = //_____formula for figuring out if something is an order or a refund____///
 
 
-    //seeds orders are all going to be under "Order"
+    //trees orders are all going to be under "Order"
 
     transactionType = "Order"
 
@@ -84,14 +82,14 @@ loop
 
     toZip = pattern(«Z»,"#####")
 
-    //____seeds does sell to canada 
+    //____trees does sell to canada 
     //+++++++
     ///______
-    ///Make sure to set the logic for this for seeds and possibly OGS
+    ///Make sure to set the logic for this for trees and possibly OGS
     toCountry = "US"
 
     ///___Set if order is Taxable_____
-    //seeds
+    //trees
     If Taxable contains "Y"
         TaxableBool = True()
     else 
@@ -108,7 +106,7 @@ loop
         endif 
 
     
-    ///____set the needed info from your seeds tally
+    ///____set the needed info from your trees tally
     
 
     total_order = «Subtotal» //or OrderTotal?
@@ -119,17 +117,18 @@ loop
 
     //__Set untaxed batch___
 
-    itemUnitPrice = ?(«TaxedAmount» > 0, «TaxedAmount», Subtotal)
 
     if TaxableBool = False()
         exemption = "wholesale"
+
+    itemUnitPrice = «Subtotal»
 
         window TJexporter
             
 
             addrecord
 
-            ////Set all the proper Fields for each seeds line from the TJseeds file
+            ////Set all the proper Fields for each trees line from the TJtrees file
 
             ///TransID
             «provider» = "panorama"
@@ -156,7 +155,7 @@ loop
 
             //Other Info
             «item_product_identifier» = "777778"
-            «item_description» = "Batch of Exempt Seed Product"
+            «item_description» = "Batch of Exempt tree Product"
             «item_quantity» = 1
             «item_unit_price» = itemUnitPrice
             «exemption_type» = exemption 
@@ -166,12 +165,15 @@ loop
         
         exemption = ""
 
-        non_taxable_order = Subtotal - TaxedAmount
-        case non_taxable_order > 0.50
+        itemUnitPrice = «TaxedAmount»
+
+        non_taxable_order = Subtotal - «TaxedAmount»
+
+        if non_taxable_order > 0.50
             untaxed_items = True()
-        defaultcase
+        else 
             untaxed_items = False()
-        endcase 
+        endif 
         
         
         window TJexporter
@@ -179,7 +181,7 @@ loop
 
             addrecord
 
-            ////Set all the proper Fields for each seeds line from the TJseeds file
+            ////Set all the proper Fields for each trees line from the TJtrees file
 
             ///TransID
             «provider» = "panorama"
@@ -210,7 +212,7 @@ loop
 
             //Other Info
             «item_product_identifier» = "777777"
-            «item_description» = "Batch of Seed Product"
+            «item_description» = "Batch of tree Product"
             «item_quantity» = 1
             «item_unit_price» = itemUnitPrice
             «exemption_type» = exemption 
@@ -223,7 +225,7 @@ loop
                 «item_unit_price» = non_taxable_order
                 «exemption_type» = "wholesale"
                 «item_sales_tax» = 0
-                «item_description» = "Batch of Exempt Seed Product"
+                «item_description» = "Batch of Exempt tree Product"
             endif
 
             ////____need to add a record with the non-taxable part of orders
@@ -231,13 +233,13 @@ loop
 
 
 
-            debug
+            //debug
 
     endif
 
 
 
-    window seeds_tally
+    window trees_tally
 
     Exported = "Yes"
 
@@ -252,14 +254,18 @@ until info("stopped")
 
 window TJexporter
 
-call CleanUpData
 endnoshow
 
 
-speak "Seeds Import is complete"
+speak "trees Import is complete"
 
 
 //-----NOTE------//
 /////////after import has succeeded, last import date needs to change
-seeds_last_date_imported = datepattern(today(),"YYYY-MM-DD")
+trees_last_date_imported = datepattern(today(),"YYYY-MM-DD")
 
+
+time_end = now()
+
+displaydata (time_end - time_start)/60
+normalexpressionstack
