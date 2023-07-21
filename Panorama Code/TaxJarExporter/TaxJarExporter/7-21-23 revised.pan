@@ -3206,8 +3206,8 @@ debug
 firstrecord
 
  global transactionType, format_Date, toName, toStreet, toCity,toState, toZip, toCountry, totalShipping,
-    totalSalesTax, productID,productDescription, itemQuantity, itemUnitPrice, OrderExempt, TaxableBool, discountTotal,
-    exemption, total_order, non_taxable_order, untaxed_items
+    totalSalesTax, productID,productDescription, itemQuantity, itemUnitPrice, OrderExempt, IsTaxed, discountTotal,
+    exemption, total_order, non_taxable_order, untaxed_items, untaxed_total
 
 loop
 
@@ -3266,9 +3266,9 @@ loop
     ///___Set if order is Taxable_____
     //ogs
     If Taxable contains "Y"
-        TaxableBool = True()
+        IsTaxed = True()
     else 
-        TaxableBool = False()
+        IsTaxed = False()
     endif
 
     //__Get Discount, shipping, and sales tax totals
@@ -3277,24 +3277,35 @@ loop
     totalSalesTax = «SalesTax»
 
         if totalSalesTax = 0
-            TaxableBool = False()
+            IsTaxed = False()
         endif 
 
     
-    ///____set the needed info from your ogs tally
+    ///____Check if there are untaxed_items in there
+    untaxed_items = False()
+    untaxed_total = 0
     
+    if states_w_shipping_tax contains «TaxState»
+        untaxed_total = (AdjTotal + «$Shipping») - TaxedAmount
+    else 
+        untaxed_total = AdjTotal - TaxedAmount
+    endif
 
-    total_order = «AdjTotal» //or OrderTotal?
+    if IsTaxed = True()
+        case untaxed_total < 0.02
+            untaxed_items = False()
+        defaultcase
+            untaxed_items = True()
+        endcase
+    endif
 
     //AdjTotal = «AdjTotal» - Discounts
     //«TaxedAmount» not sure hwat this is for 
     //taxed amount shows how much of the order was taxable
 
-    //__Set untaxed batch___
+    //__Set fully non-taxable order_____///
 
-
-    if TaxableBool = False()
-        exemption = "wholesale"
+    if IsTaxed = False()
 
     itemUnitPrice = «AdjTotal»
 
@@ -3325,7 +3336,7 @@ loop
             «total_sales_tax» = totalSalesTax
             «total_shipping» = totalShipping
 
-            «item_discount» = discountTotal
+            //«item_discount» = discountTotal
         
 
             //Other Info
@@ -3333,27 +3344,22 @@ loop
             «item_description» = "Batch of Exempt ogs Product"
             «item_quantity» = 1
             «item_unit_price» = itemUnitPrice
-            «exemption_type» = exemption 
+            «exemption_type» = "wholesale" 
             «item_sales_tax» = totalSalesTax
+            goto NextItem
+    endif
 
-    else
+// Set Fully taxed line
+
+    if IsTaxed = True() AND untaxed_items = False()
+    ///this makes sure even states with tax on shipping are included
         
         exemption = ""
 
-        itemUnitPrice = «TaxedAmount»
-
-        non_taxable_order = «AdjTotal» - «TaxedAmount»
-
-        if non_taxable_order > 1
-            untaxed_items = True()
-        else 
-            untaxed_items = False()
-        endif 
-        
+        itemUnitPrice = «AdjTotal»
         
         window TJexporter
             
-
             addrecord
 
             ////Set all the proper Fields for each ogs line from the TJogs file
@@ -3377,12 +3383,8 @@ loop
             
             «total_sales_tax» = totalSalesTax
             «total_shipping» = totalShipping
+            //«item_discount» = discountTotal
 
-            case untaxed_items = False()
-                «item_discount» = discountTotal
-            case untaxed_items = True() 
-                «item_discount» = discountTotal/2
-            endcase
             //«item_discount» = str(discountEach) 
 
             //Other Info
@@ -3393,27 +3395,65 @@ loop
             «exemption_type» = exemption 
             «item_sales_tax» = totalSalesTax
 
-            if untaxed_items = True()
-                copyrecord
-                pasterecord
-                «item_product_identifier» = "333338"
-                «item_unit_price» = non_taxable_order
-                «exemption_type» = "wholesale"
-                «item_sales_tax» = 0
-                «item_description» = "Batch of Exempt ogs Product"
-            endif
-
             ////____need to add a record with the non-taxable part of orders
                 //___use a copy/pasterecord and just change whats needed to get the total sales correct
 
 
 
             //debug
-
+            goto NextItem
     endif
 
 
+    ///default setting, if there's non-taxable items on there, figure out what that amount should be
 
+    ///___do taxed record first
+        
+        exemption = ""
+
+        itemUnitPrice = «AdjTotal» - untaxed_total
+        
+        window TJexporter
+            
+            addrecord
+
+            ////Set all the proper Fields for each ogs line from the TJogs file
+
+            ///TransID
+            «provider» = "panorama"
+            «transaction_id» = TransactionID
+            «transaction_type» = transactionType
+            //transaction_reference_id = // only for refunds
+            «transaction_date» = format_Date
+
+            ///Shipped to 
+            «to_name» = toName
+            «to_street» = toStreet
+            «to_city» = toCity
+            «to_state» = toState
+            «to_zip» = toZip
+            «to_country» = toCountry
+
+            //Dollars and Cents
+            
+            «total_sales_tax» = totalSalesTax
+            «total_shipping» = totalShipping
+            //«item_discount» = discountTotal/2
+
+
+            //Other Info
+            «item_product_identifier» = "333333"
+            «item_description» = "Batch of ogs Product"
+            «item_quantity» = 1
+            «item_unit_price» = itemUnitPrice
+            «exemption_type» = exemption 
+            «item_sales_tax» = totalSalesTax
+
+
+
+
+
+NextItem:
     window ogs_tally
 
     Exported = "Yes"
@@ -3421,6 +3461,8 @@ loop
     save
 
     downrecord
+
+    IsTaxed = ""
 
 until info("stopped") 
 
@@ -3442,527 +3484,3 @@ ogs_last_date_imported = datepattern(today(),"YYYY-MM-DD")
 
 
 normalexpressionstack
-___ ENDPROCEDURE OGSExportSimple _______________________________________________
-
-___ PROCEDURE AllSimpleImport __________________________________________________
-if tally_check contains "s"
-    window TJexporter
-
-    call SeedsImportSimple
-endif
-
-if tally_check contains "o"
-
-    window TJexporter
-
-    call OGSExportSimple
-endif
-
-if tally_check contains "w"
-
-    window TJexporter
-
-    call OGSWalkinExportSimple
-
-endif
-
-if tally_check contains "t"
-
-    window TJexporter
-
-    call TreesImportSimple
-
-endif
-
-    window TJexporter
-
-    call CleanUpData
-
-    call "Remove Exemptions"
-___ ENDPROCEDURE AllSimpleImport _______________________________________________
-
-___ PROCEDURE fixExemptParts ___________________________________________________
-local disc_amt_total, disc_amt_one, disc_amt_two, item_unit_one, item_unit_two
-
-field transaction_id
-
-sortup
-
-selectduplicates ""
-
-firstrecord 
-
-loop
-
-    field item_discount
-    
-    disc_amt_one = item_discount
-    
-    downrecord
-    
-    disc_amt_two = item_discount
-    
-    uprecord
-    
-    disc_amt_total = disc_amt_two + disc_amt_one
-    
-    item_unit_one = item_unit_price
-    
-    downrecord
-    
-    item_unit_two = item_unit_price
-    
-    case item_unit_price ≥ disc_amt_total
-        uprecord
-        item_discount = 0
-        downrecord
-        item_discount = disc_amt_total
-    case item_unit_one ≥ disc_amt_total
-        item_discount = 0
-        uprecord
-        item_discount = disc_amt_total
-        downrecord
-    endcase
-         
-         downrecord
-    
-until info("stopped")
-
-selectwithin item_discount > item_unit_price
-
-if (not info("empty"))
-    message "Got some discounts that are too high"
-    endif
-___ ENDPROCEDURE fixExemptParts ________________________________________________
-
-___ PROCEDURE clearField _______________________________________________________
-firstrecord
-loop
-
-clearcell
-
-downrecord
-
-until info("stopped")
-
-
-___ ENDPROCEDURE clearField ____________________________________________________
-
-___ PROCEDURE Set TransID for exempt ___________________________________________
-
-___ ENDPROCEDURE Set TransID for exempt ________________________________________
-
-___ PROCEDURE Remove Exemptions ________________________________________________
-field transaction_id
-
-selectall 
-
-sortup
-
-selectduplicates ""
-
-if info("selected") < info("records")
-
-field exemption_type
-
-formulafill ""
-
-endif
-
-selectall
-
-select transaction_id contains "ogs_walkin"
-
-selectwithin total_sales_tax > 0.01
-
-field exemption_type
-
-formulafill ""
-
-call .FindLikelyErrors
-___ ENDPROCEDURE Remove Exemptions _____________________________________________
-
-___ PROCEDURE SelectRange ______________________________________________________
-local date_one, date_two
-
-gettext "What's the start date?", date_one
-
-gettext "What's the end date?", date_two
-
-date_one = date(date_one)
-date_two = date(date_two)
-
- select date(«transaction_date») ≥ date_one AND date(«transaction_date») ≤ date_two
-___ ENDPROCEDURE SelectRange ___________________________________________________
-
-___ PROCEDURE CheckTaxable _____________________________________________________
-local taxable_amount
-firstrecord
-
-taxable_amount = 0
-
-loop 
-
-if item_sales_tax > 0
-
-taxable_amount = taxable_amount + item_unit_price
-endif
-downrecord
-
-until info("stopped")
-
-displaydata taxable_amount
-___ ENDPROCEDURE CheckTaxable __________________________________________________
-
-___ PROCEDURE OGSWalkinExportSimple ____________________________________________
-global get_orders, date_range,  which_branch, 
-files_open, order_line, TransactionID, check_overflow_count
-permanent ogs_walkin_last_date_imported
-
-check_overflow_count = 0
-extendedexpressionstack 
-noshow
-
-//______Gets to the right data ____///
-define ogs_walkin_last_date_imported, datepattern(today(),"YYYY-MM-DD")
-
-date_range = ""
-
-which_branch = "ogs_walkintally"
-
-openfile ogs_walkin
-//-----Select Date Range-----///
-
-window ogs_walkin
-
-select date(datestr(«Date»)) ≥ start_date AND date(datestr(«Date»)) ≤ end_date
-
-selectwithin Transaction = int(Transaction)
-
-
-
-//Get completed orders only
-selectwithin «Status» = "Com"
-
-debug
-
-firstrecord
-
- global transactionType, format_Date, toName, toStreet, toCity,toState, toZip, toCountry, totalShipping,
-    totalSalesTax, productID,productDescription, itemQuantity, itemUnitPrice, OrderExempt, TaxableBool, discountTotal,
-    exemption, total_order, non_taxable_order, untaxed_items
-
-loop
-
-    ////_________TaxJar SPecific______////
-    //---start taxjar import loop ---///
-
-    //---import loop ---///
-
-
-    window ogs_walkin
-
-
-
-    ///----Set Transcation ID------//
-    TransactionID = "pan"+"_"+str(yearvalue(date(datestr(«Date»))))+"_"+"ogs_walkin"+"_"+str(Transaction)
-
-
-    ///----Is Order or Refund----//
-    // transactionType = //_____formula for figuring out if something is an order or a refund____///
-
-
-    //ogs orders are all going to be under "Order"
-
-    transactionType = "Order"
-
-
-    //---if refund, give reference--------//
-
-    // transactionRef = 
-
-
-
-    //----set date to proper format----//
-    format_Date = datepattern(date(datestr(«Date»)), "YYYY-MM-DD")
-
-
-
-    //____Buyer Info_____///
-
-    toName = Name
-
-    toStreet = "688 Bellsqueeze Rd"
-
-    toCity = "Clinton"
-
-    toState = "ME"
-
-    toZip = "04927"
-
-    //____ogs does sell to canada 
-    //+++++++
-    ///______
-    ///Make sure to set the logic for this for seeds and possibly OGS
-    toCountry = "US"
-
-    ///___Set if order is Taxable_____
-    //ogs
-    If TaxExempt contains "N"
-        TaxableBool = True()
-    else 
-        TaxableBool = False()
-    endif
-
-    //__Get Discount, shipping, and sales tax totals
-    discountTotal = «Discount» + «MemberDiscount»
-    totalShipping = «$Shipping»
-    totalSalesTax = «SalesTax»
-
-        if totalSalesTax = 0
-            TaxableBool = False()
-        endif 
-
-    
-    ///____set the needed info from your ogs tally
-    
-
-    total_order = «Adjtotal» //or OrderTotal?
-
-    //AdjTotal = «Adjtotal» - Discounts
-    //«TaxTotal» not sure hwat this is for 
-    //taxed amount shows how much of the order was taxable
-
-    //__Set untaxed batch___
-
-
-    if TaxableBool = False()
-        exemption = "wholesale"
-
-    itemUnitPrice = «Adjtotal»
-
-        window TJexporter
-            
-
-            addrecord
-
-            ////Set all the proper Fields for each ogs line from the TJogs file
-
-            ///TransID
-            «provider» = "panorama"
-            «transaction_id» = TransactionID
-            «transaction_type» = transactionType
-            //transaction_reference_id = // only for refunds
-            «transaction_date» = format_Date
-
-            ///Shipped to 
-            «to_name» = toName
-            «to_street» = toStreet
-            «to_city» = toCity
-            «to_state» = toState
-            «to_zip» = toZip
-            «to_country» = toCountry
-
-            //Dollars and Cents
-            
-            «total_sales_tax» = totalSalesTax
-            «total_shipping» = totalShipping
-
-            «item_discount» = discountTotal
-        
-
-            //Other Info
-            «item_product_identifier» = "333335"
-            «item_description» = "Batch of Exempt OGS Walkin Product"
-            «item_quantity» = 1
-            «item_unit_price» = itemUnitPrice
-            «exemption_type» = exemption 
-            «item_sales_tax» = totalSalesTax
-
-    else
-        
-        exemption = ""
-
-        itemUnitPrice = «TaxTotal»
-
-        non_taxable_order = «Adjtotal» - «TaxTotal»
-
-        if non_taxable_order > 0.50
-            untaxed_items = True()
-        else 
-            untaxed_items = False()
-        endif 
-        
-        
-        window TJexporter
-            
-
-            addrecord
-
-            ////Set all the proper Fields for each ogs line from the TJogs file
-
-            ///TransID
-            «provider» = "panorama"
-            «transaction_id» = TransactionID
-            «transaction_type» = transactionType
-            //transaction_reference_id = // only for refunds
-            «transaction_date» = format_Date
-
-            ///Shipped to 
-            «to_name» = toName
-            «to_street» = toStreet
-            «to_city» = toCity
-            «to_state» = toState
-            «to_zip» = toZip
-            «to_country» = toCountry
-
-            //Dollars and Cents
-            
-            «total_sales_tax» = totalSalesTax
-            «total_shipping» = totalShipping
-
-            case untaxed_items = False()
-                «item_discount» = discountTotal
-            case untaxed_items = True() 
-                «item_discount» = discountTotal/2
-            endcase
-            //«item_discount» = str(discountEach) 
-
-            //Other Info
-            «item_product_identifier» = "333334"
-            «item_description» = "Batch of OGS walkin Product"
-            «item_quantity» = 1
-            «item_unit_price» = itemUnitPrice
-            «exemption_type» = exemption 
-            «item_sales_tax» = totalSalesTax
-
-            if untaxed_items = True()
-                copyrecord
-                pasterecord
-                «item_product_identifier» = "333338"
-                «item_unit_price» = non_taxable_order
-                «exemption_type» = "wholesale"
-                «item_sales_tax» = 0
-                «item_description» = "Batch of Exempt ogs Product"
-            endif
-
-            ////____need to add a record with the non-taxable part of orders
-                //___use a copy/pasterecord and just change whats needed to get the total sales correct
-
-
-
-            //debug
-
-    endif
-
-
-
-    window ogs_walkin
-
-
-
-    save
-
-    downrecord
-
-until info("stopped") 
-
-
-
-
-window TJexporter
-
-endnoshow
-
-
-speak "ogs walk in Import is complete"
-
-
-//-----NOTE------//
-/////////after import has succeeded, last import date needs to change
-ogs_walkin_last_date_imported = datepattern(today(),"YYYY-MM-DD")
-
-
-
-normalexpressionstack
-___ ENDPROCEDURE OGSWalkinExportSimple _________________________________________
-
-___ PROCEDURE GetTaxableAmounts ________________________________________________
-firstrecord
-removeallsummaries
-
-local taxable, non_taxable
-
-taxable = 0
-non_taxable = 0
-
-loop
-
-if item_sales_tax >0.01
-    taxable = taxable + item_unit_price
-else
-    non_taxable = non_taxable + item_unit_price
-    endif
-    
-downrecord
-until info("stopped")
-    
- displaydata "Taxable: " + str(taxable)+¶+¶+¶+"Non-Taxable: "+str(non_taxable)
-    
-___ ENDPROCEDURE GetTaxableAmounts _____________________________________________
-
-___ PROCEDURE Shipping Estimate ________________________________________________
-local shipping_float, check_amt
-
-field total_shipping
-shipping_float = 0.00
-check_amt = ""
-
-firstrecord
-
-loop
-
-check_amt = transaction_id
-
-downrecord
-
-case transaction_id = check_amt
-
-    shipping_float = shipping_float + «»
-    
-    downrecord
-    
-defaultcase
-
-    uprecord
-    
-     shipping_float = shipping_float + «»
-    
-    downrecord
-    
-endcase
-    
-until info("stopped") or info("summary") > 0
-
-if info("summary") < 1
-    total
-    endif
-    
-«» = shipping_float
-    
-
-//displaydata shipping_float
-
- shipping_float = shipping_float + «»
-    
-    downrecord
-
-    
-
-
-___ ENDPROCEDURE Shipping Estimate _____________________________________________
-
-___ PROCEDURE LookupFromOtherFile ______________________________________________
-field transaction_reference_id
-formulafill val(transaction_id["-_",-1][2,-1])
-___ ENDPROCEDURE LookupFromOtherFile ___________________________________________

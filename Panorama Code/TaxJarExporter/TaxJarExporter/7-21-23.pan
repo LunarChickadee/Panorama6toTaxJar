@@ -3963,6 +3963,55 @@ if info("summary") < 1
 ___ ENDPROCEDURE Shipping Estimate _____________________________________________
 
 ___ PROCEDURE LookupFromOtherFile ______________________________________________
-field transaction_reference_id
-formulafill val(transaction_id["-_",-1][2,-1])
+global transaction, amt_total, TJ, MST, list_of_weird, is_two
+
+transaction = ""
+amt_total = 0.00
+
+TJ = "TaxJarSimpleExport"
+
+MST = "ogstallyDelinked"
+
+list_of_weird = ""
+
+firstrecord
+
+loop
+
+window TJ
+
+transaction = transaction_id
+
+downrecord
+
+case transaction_id = transaction
+    is_two = True()
+    uprecord
+    amt_total = item_unit_price
+    downrecord
+    amt_total = item_unit_price + amt_total
+defaultcase
+    is_two = False()
+    uprecord
+    amt_total = item_unit_price
+endcase
+
+window MST
+
+find AdjTotal = amt_total
+    if (not info("found"))
+    window TJ
+    list_of_weird = list_of_weird + ¶ + transaction_id
+    endif
+    
+window TJ
+    
+downrecord
+
+until info("stopped")
+
+window TJ
+arraystrip list_of_weird, ¶
+select list_of_weird contains transaction_id
+
 ___ ENDPROCEDURE LookupFromOtherFile ___________________________________________
